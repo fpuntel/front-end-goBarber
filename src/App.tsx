@@ -5,9 +5,14 @@ import SignUp from './pages/SignUp';
 // Estilo global
 import GlobalStyle from './styles/global';
 
+import AppProvider from './hooks';
+
 const App: React.FC = () => (
   <>
-    <SignUp />
+    <AppProvider>
+      <SignIn />
+    </AppProvider>
+
     <GlobalStyle />
   </>
 );
