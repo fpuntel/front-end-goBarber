@@ -3,9 +3,8 @@ import { FiLogIn, FiMail, FiLock } from 'react-icons/fi';
 import { FormHandles } from '@unform/core';
 import { Form } from '@unform/web';
 import * as Yup from 'yup';
-import { Link, useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 
-import { useAuth } from '../../hooks/auth';
 import { useToast } from '../../hooks/toast';
 import getValidationErrors from '../../utils/getValidationErrors';
 
@@ -16,27 +15,30 @@ import Button from '../../components/Button';
 
 import { Container, Content, AnimationContainer, Background } from './styles';
 
-interface SignInFormData {
-  email: string;
+import api from '../../services/api';
+
+interface ResetPasswordFormData {
   password: string;
+  password_confirmation: string;
 }
 
 const SignIn: React.FC = () => {
   // FormHandles todas as tipagem do form
   const formRef = useRef<FormHandles>(null);
 
-  const { signIn } = useAuth();
   const { addToast } = useToast();
   const history = useHistory();
+  const location = useLocation();
 
-  const handleSubmit = useCallback(async (data: SignInFormData) => {  // eslint-disable-line
+  const handleSubmit = useCallback(async (data: ResetPasswordFormData) => {  // eslint-disable-line
       try {
         formRef.current?.setErrors({});
         const schema = Yup.object().shape({
-          email: Yup.string()
-            .required('E-mail obrigatório')
-            .email('Digite um e-mail válido'),
           password: Yup.string().required('Senha obrigatória'),
+          password_confirmation: Yup.string().oneOf(
+            [Yup.ref('password'), undefined],
+            'Confirmação incorreta'
+          ),
         });
 
         // abortEarly : true retorna todos os erros
@@ -45,14 +47,19 @@ const SignIn: React.FC = () => {
           abortEarly: false,
         });
 
-        // Depois da validação chama o método para SignIn
-        // Passa as informações necessárias para o SignIn
-        await signIn({
-          email: data.email,
-          password: data.password,
-        });
+        const token = location.search.replace('?token=', '');
 
-        history.push('/dashboard');
+        if(!token){
+          throw new Error();
+        }
+
+        await api.post('/password/reset', {
+          password: data.password,
+          password_confirmation: data.password_confirmation,
+          token,
+        })
+
+        history.push('/');
       } catch (err) {
         if (err instanceof Yup.ValidationError) {
           const errors = getValidationErrors(err);
@@ -65,13 +72,13 @@ const SignIn: React.FC = () => {
         // disparar um toarst
         addToast({
           type: 'error',
-          title: 'erro na autenticação',
+          title: 'erro ao resetar a senha',
           description:
-            'Ocorreu um erro ao fazer o login, verifique suas credenciais.',
+            'Ocorreu um erro ao resetar sua senha, tente novamente.',
         });
       }
     },
-    [signIn, addToast, history],
+    [addToast, history, location.search],
   );
 
   return (
@@ -81,26 +88,26 @@ const SignIn: React.FC = () => {
           <Form ref={formRef} onSubmit={handleSubmit}>
             <img src={logoImg} alt="GoBarber" />
             <form>
-              <h1>Faça seu logon</h1>
-
-              <Input name="email" icon={FiMail} placeholder="E-mail" />
+              <h1>Resetar senha</h1>
 
               <Input
                 name="password"
                 icon={FiLock}
                 type="password"
-                placeholder="Senha"
+                placeholder="Nova senha"
               />
 
-              <Button type="submit">Entrar</Button>
+              <Input
+                name="password_confirmation"
+                icon={FiLock}
+                type="password"
+                placeholder="Confirmação da senha"
+              />
 
-              <Link to="/forgot-password">Esqueci minha senha</Link>
+              <Button type="submit">Alterar senha</Button>
             </form>
           </Form>
-          <Link to="/signup">
-            <FiLogIn />
-            Criar conta
-          </Link>
+
         </AnimationContainer>
       </Content>
       <Background />
